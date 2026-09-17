@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Services - Hayilish Color Bar{% endblock %}
+
+{% block content %}
+<div class="card-header" style="margin-bottom: 1.25rem;">
+  <div>
+    <h1 style="font-size: 1.5rem; font-weight: 700;">Salon Services</h1>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">Manage available services and pricing. Historical tickets retain their snapshot price.</p>
+  </div>
+</div>
+
+<div class="grid-2">
+  
+  <!-- Services Table -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">All Services</h2>
+      <span style="font-size: 0.85rem; color: var(--text-muted);">{{ services.count }} service{{ services.count|pluralize }}</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Price</th>
+            <th>Status</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in services %}
+            <tr style="{% if not s.is_active %}opacity: 0.6;{% endif %}">
+              <td><strong>{{ s.name }}</strong></td>
+              <td>{{ s.price }} ETB</td>
+              <td>
+                {% if s.is_active %}
+                  <span class="badge badge-completed">Active</span>
+                {% else %}
+                  <span class="badge badge-cancelled">Inactive</span>
+                {% endif %}
+              </td>
+              <td style="text-align: right;">
+                <div style="display: flex; gap: 0.35rem; justify-content: flex-end;">
+                  <a href="{% url 'service_edit' s.id %}" class="btn btn-secondary btn-sm">Edit</a>
+                  <form method="post" action="{% url 'service_toggle' s.id %}" style="display: inline;">
+                    {% csrf_token %}
+                    {% if s.is_active %}
+                      <button type="submit" class="btn btn-danger btn-sm" title="Deactivate service">Deactivate</button>
+                    {% else %}
+                      <button type="submit" class="btn btn-success btn-sm" title="Activate service">Activate</button>
+                    {% endif %}
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                No services added yet. Use the form to add your first service.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Add New Service Card -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Add New Service</h2>
+    </div>
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="{{ form.name.id_for_label }}" class="form-label">Service Name</label>
+        {{ form.name }}
+        {% if form.name.errors %}
+          <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ form.name.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="{{ form.price.id_for_label }}" class="form-label">Price (ETB)</label>
+        {{ form.price }}
+        {% if form.price.errors %}
+          <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ form.price.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem;">
+        {{ form.is_active }}
+        <label for="{{ form.is_active.id_for_label }}" class="form-label" style="margin-bottom: 0;">Active (Available on New Ticket)</label>
+      </div>
+
+      <div style="margin-top: 1.25rem;">
+        <button type="submit" class="btn btn-primary btn-block">
+          Save Service
+        </button>
+      </div>
+    </form>
+  </div>
+
+</div>
+{% endblock %}

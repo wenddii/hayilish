@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Ticket #{{ ticket.id }} - Hayilish Color Bar{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+
+  <!-- Ticket Header Card -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <span style="color: var(--text-muted); font-size: 0.85rem; font-weight: 600;">TICKET DETAILS</span>
+        <h1 style="font-size: 1.5rem; font-weight: 700; margin-top: 0.15rem;">Ticket #{{ ticket.id }}</h1>
+      </div>
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <span class="badge badge-{{ ticket.status }}">{{ ticket.get_status_display }}</span>
+        <a href="{% url 'ticket_print' ticket.id %}" target="_blank" class="btn btn-secondary btn-sm" title="Print 58mm Thermal Ticket">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          Print 58mm
+        </a>
+      </div>
+    </div>
+
+    <!-- Ticket Meta Grid -->
+    <div class="grid-3" style="margin-bottom: 1.25rem;">
+      <div>
+        <span class="form-label" style="color: var(--text-muted);">Customer</span>
+        <strong style="font-size: 1rem;">{{ ticket.customer.name|default:"Walk-in Customer" }}</strong>
+        {% if ticket.customer.phone %}
+          <div style="font-size: 0.85rem; color: var(--text-muted);">{{ ticket.customer.phone }}</div>
+        {% endif %}
+      </div>
+      <div>
+        <span class="form-label" style="color: var(--text-muted);">Created At</span>
+        <div>{{ ticket.created_at|date:"d M Y, H:i" }}</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">by {{ ticket.created_by.username }}</div>
+      </div>
+      <div>
+        <span class="form-label" style="color: var(--text-muted);">Payment Status</span>
+        {% if payment %}
+          <strong style="color: var(--success);">Paid ({{ payment.get_method_display }})</strong>
+          <div style="font-size: 0.8rem; color: var(--text-muted);">{{ payment.paid_at|date:"d M Y, H:i" }}</div>
+        {% else %}
+          <strong style="color: var(--warning);">Unpaid</strong>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Services in Order -->
+    <h2 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.75rem;">Services (in sequence)</h2>
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th style="width: 40px;">#</th>
+            <th>Service</th>
+            <th style="text-align: right;">Price (ETB)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+            <tr>
+              <td style="font-weight: 700; color: var(--text-muted);">{{ item.order }}</td>
+              <td>
+                <strong>{{ item.service.name }}</strong>
+                {% if not item.service.is_active %}
+                  <span style="font-size: 0.75rem; color: var(--text-muted);">(Service inactive)</span>
+                {% endif %}
+              </td>
+              <td style="text-align: right; font-weight: 600;">{{ item.price }} ETB</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="3" style="text-align: center; color: var(--text-muted);">No services attached to this ticket.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Total Display -->
+    <div class="total-display" style="margin-top: 1rem;">
+      <span>Total</span>
+      <span>{{ ticket.total }} ETB</span>
+    </div>
+  </div>
+
+  {% if ticket.status == 'open' %}
+    <!-- ACTIONS GRID FOR OPEN TICKETS -->
+    <div class="grid-2">
+      
+      <!-- 1. Add Service Later -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title" style="font-size: 1rem;">Add Another Service</h2>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Customer requested an additional service? Add it here. It will be appended in order.
+        </p>
+        <form method="post" action="{% url 'ticket_add_service' ticket.id %}">
+          {% csrf_token %}
+          <div class="form-group">
+            <label for="id_service" class="form-label">Select Service</label>
+            {{ add_service_form.service }}
+          </div>
+          <button type="submit" class="btn btn-secondary btn-block">
+            + Add to Ticket
+          </button>
+        </form>
+      </div>
+
+      <!-- 2. Complete Ticket & Record Payment -->
+      <div class="card" style="border-color: #a7f3d0;">
+        <div class="card-header">
+          <h2 class="card-title" style="font-size: 1rem; color: var(--success-text);">Complete & Pay</h2>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Record customer payment method and mark this ticket as completed.
+        </p>
+        <form method="post" action="{% url 'ticket_complete' ticket.id %}">
+          {% csrf_token %}
+          <div class="form-group">
+            <label for="id_method" class="form-label">Payment Method</label>
+            {{ payment_form.method }}
+          </div>
+          <div class="form-group">
+            <label for="id_amount" class="form-label">Amount (ETB)</label>
+            {{ payment_form.amount }}
+          </div>
+          <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+            <button type="submit" class="btn btn-success" style="flex: 1;">
+              Complete Ticket
+            </button>
+            <button type="submit" name="complete_and_print" value="1" class="btn btn-secondary" title="Complete & Print 58mm Receipt">
+              Complete & Print
+            </button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+
+    <!-- Cancel Ticket Option -->
+    <div style="text-align: right; margin-top: 0.5rem; margin-bottom: 2rem;">
+      <form method="post" action="{% url 'ticket_cancel' ticket.id %}" onsubmit="return confirm('Are you sure you want to cancel Ticket #{{ ticket.id }}?');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger btn-sm">
+          Cancel Ticket
+        </button>
+      </form>
+    </div>
+
+  {% endif %}
+
+</div>
+{% endblock %}

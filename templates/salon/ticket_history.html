@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Ticket History - Hayilish Color Bar{% endblock %}
+
+{% block content %}
+<div class="card-header" style="margin-bottom: 1.25rem;">
+  <div>
+    <h1 style="font-size: 1.5rem; font-weight: 700;">Ticket History</h1>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">View and search all salon tickets past and present.</p>
+  </div>
+</div>
+
+<!-- Search & Filter Card -->
+<div class="card">
+  <form method="get" class="form-row" style="flex-wrap: wrap;">
+    <div style="flex: 2; min-width: 180px;">
+      <label for="q" class="form-label">Search</label>
+      <input type="text" name="q" id="q" class="form-control" placeholder="Ticket # or Customer..." value="{{ query }}">
+    </div>
+
+    <div style="flex: 1; min-width: 140px;">
+      <label for="status" class="form-label">Status</label>
+      <select name="status" id="status" class="form-control">
+        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Statuses</option>
+        <option value="open" {% if status_filter == 'open' %}selected{% endif %}>Open</option>
+        <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option>
+        <option value="cancelled" {% if status_filter == 'cancelled' %}selected{% endif %}>Cancelled</option>
+      </select>
+    </div>
+
+    <div style="flex: 1; min-width: 140px;">
+      <label for="date_from" class="form-label">Date From</label>
+      <input type="date" name="date_from" id="date_from" class="form-control" value="{{ date_from }}">
+    </div>
+
+    <div style="flex: 1; min-width: 140px;">
+      <label for="date_to" class="form-label">Date To</label>
+      <input type="date" name="date_to" id="date_to" class="form-control" value="{{ date_to }}">
+    </div>
+
+    <div style="display: flex; gap: 0.5rem;">
+      <button type="submit" class="btn btn-primary">Filter</button>
+      <a href="{% url 'ticket_history' %}" class="btn btn-secondary">Reset</a>
+    </div>
+  </form>
+</div>
+
+<!-- History Table -->
+<div class="card" style="padding: 0;">
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Ticket #</th>
+          <th>Date & Time</th>
+          <th>Customer</th>
+          <th>Services</th>
+          <th>Total</th>
+          <th>Payment</th>
+          <th>Status</th>
+          <th style="text-align: right;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in page_obj %}
+          <tr>
+            <td><strong>#{{ t.id }}</strong></td>
+            <td style="font-size: 0.85rem; color: var(--text-muted);">{{ t.created_at|date:"d M Y, H:i" }}</td>
+            <td>
+              <strong>{{ t.customer.name|default:"Walk-in Customer" }}</strong>
+              {% if t.customer.phone %}
+                <div style="font-size: 0.8rem; color: var(--text-muted);">{{ t.customer.phone }}</div>
+              {% endif %}
+            </td>
+            <td>
+              <span style="font-size: 0.85rem;">{{ t.items.count }} service{{ t.items.count|pluralize }}</span>
+            </td>
+            <td><strong>{{ t.total }} ETB</strong></td>
+            <td>
+              {% if t.payment %}
+                <span style="color: var(--success); font-weight: 500;">{{ t.payment.get_method_display }}</span>
+              {% else %}
+                <span style="color: var(--text-muted); font-size: 0.85rem;">—</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge badge-{{ t.status }}">{{ t.get_status_display }}</span>
+            </td>
+            <td style="text-align: right;">
+              <a href="{% url 'ticket_detail' t.id %}" class="btn btn-secondary btn-sm">View</a>
+              <a href="{% url 'ticket_print' t.id %}" target="_blank" class="btn btn-secondary btn-sm" title="Print 58mm">Print</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+              No tickets found matching your search filters.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+  <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 1rem;">
+    {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}&q={{ query }}&status={{ status_filter }}&date_from={{ date_from }}&date_to={{ date_to }}" class="btn btn-secondary btn-sm">Previous</a>
+    {% endif %}
+    <span style="font-size: 0.9rem; align-self: center; color: var(--text-muted);">
+      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </span>
+    {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}&q={{ query }}&status={{ status_filter }}&date_from={{ date_from }}&date_to={{ date_to }}" class="btn btn-secondary btn-sm">Next</a>
+    {% endif %}
+  </div>
+{% endif %}
+{% endblock %}

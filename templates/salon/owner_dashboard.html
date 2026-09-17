@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Owner Dashboard - Hayilish Color Bar{% endblock %}
+
+{% block content %}
+<div class="card-header" style="margin-bottom: 1.25rem;">
+  <div>
+    <h1 style="font-size: 1.5rem; font-weight: 700;">Owner Dashboard</h1>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">Salon overview for today: {{ today|date:"l, d F Y" }}</p>
+  </div>
+  <div>
+    <a href="{% url 'owner_reports' %}" class="btn btn-secondary">
+      View Reports
+    </a>
+  </div>
+</div>
+
+<!-- 4 Core Stat Cards -->
+<div class="grid-4" style="margin-bottom: 1.5rem;">
+  <div class="stat-card">
+    <div class="stat-label">Today's Tickets</div>
+    <div class="stat-val">{{ today_tickets_count }}</div>
+    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Tickets created today</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-label">Today's Revenue</div>
+    <div class="stat-val" style="color: var(--success);">{{ today_revenue }} ETB</div>
+    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Completed payments today</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-label">Today's Services</div>
+    <div class="stat-val">{{ today_services_count }}</div>
+    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Services performed today</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-label">Open Tickets</div>
+    <div class="stat-val" style="color: var(--warning);">{{ open_tickets_count }}</div>
+    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Currently in progress</div>
+  </div>
+</div>
+
+<!-- Today's Recent Tickets Table -->
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">Today's Activity</h2>
+    <span style="font-size: 0.85rem; color: var(--text-muted);">Recent tickets today</span>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Ticket #</th>
+          <th>Time</th>
+          <th>Customer</th>
+          <th>Services</th>
+          <th>Total</th>
+          <th>Payment</th>
+          <th>Status</th>
+          <th style="text-align: right;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in recent_tickets %}
+          <tr>
+            <td><strong>#{{ t.id }}</strong></td>
+            <td style="font-size: 0.85rem; color: var(--text-muted);">{{ t.created_at|date:"H:i" }}</td>
+            <td>{{ t.customer.name|default:"Walk-in Customer" }}</td>
+            <td>{{ t.items.count }} service{{ t.items.count|pluralize }}</td>
+            <td><strong>{{ t.total }} ETB</strong></td>
+            <td>
+              {% if t.payment %}
+                <span style="color: var(--success); font-weight: 500;">{{ t.payment.get_method_display }}</span>
+              {% else %}
+                <span style="color: var(--text-muted);">Unpaid</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge badge-{{ t.status }}">{{ t.get_status_display }}</span>
+            </td>
+            <td style="text-align: right;">
+              <a href="{% url 'ticket_detail' t.id %}" class="btn btn-secondary btn-sm">View</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+              No tickets recorded today yet.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

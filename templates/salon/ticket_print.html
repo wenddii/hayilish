@@ -1,0 +1,129 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Receipt Ticket #{{ ticket.id }} - Hayilish Color Bar</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  <style>
+    /* Specific print controls & strict thermal sizing */
+    body {
+      background-color: #f1f5f9;
+      margin: 0;
+      padding: 0;
+    }
+
+    .print-bar {
+      background: #ffffff;
+      padding: 10px 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid #cbd5e1;
+      margin-bottom: 16px;
+    }
+
+    @media print {
+      .print-bar {
+        display: none !important;
+      }
+      body {
+        background: #ffffff !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Non-printable top action bar -->
+  <div class="print-bar no-print">
+    <button onclick="window.print()" class="btn btn-primary btn-sm">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 6 2 18 2 18 9"></polyline>
+        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+        <rect x="6" y="14" width="12" height="8"></rect>
+      </svg>
+      Print Receipt (58mm)
+    </button>
+    <a href="{% url 'ticket_detail' ticket.id %}" class="btn btn-secondary btn-sm">
+      Back to Ticket #{{ ticket.id }}
+    </a>
+  </div>
+
+  <!-- 58mm Receipt Body -->
+  <div class="receipt-container">
+    <div class="receipt-header">
+      <div class="receipt-title">HAYILISH COLOR BAR</div>
+      <div style="font-size: 10px; margin-top: 2px;">Salon & Beauty Care</div>
+    </div>
+
+    <div class="receipt-divider"></div>
+
+    <div style="display: flex; justify-content: space-between; font-weight: bold;">
+      <span>Ticket #{{ ticket.id }}</span>
+      <span>{{ ticket.get_status_display|upper }}</span>
+    </div>
+    <div style="font-size: 10px; color: #333333; margin-top: 2px;">
+      {{ ticket.created_at|date:"d M Y H:i" }}
+    </div>
+
+    <div style="margin-top: 4px; font-size: 10px;">
+      Customer: {{ ticket.customer.name|default:"Walk-in Customer" }}
+      {% if ticket.customer.phone %}
+        <br>Tel: {{ ticket.customer.phone }}
+      {% endif %}
+    </div>
+
+    <div class="receipt-divider"></div>
+
+    <!-- Ordered Services List -->
+    <div style="margin: 6px 0;">
+      {% for item in items %}
+        <div class="receipt-item">
+          <span>{{ item.order }}. {{ item.service.name }}</span>
+          <span>{{ item.price }} ETB</span>
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="receipt-divider"></div>
+
+    <div class="receipt-total">
+      <span>TOTAL:</span>
+      <span>{{ ticket.total }} ETB</span>
+    </div>
+
+    {% if payment %}
+      <div style="font-size: 10px; margin-top: 4px;">
+        <div>Paid: {{ payment.amount }} ETB</div>
+        <div>Method: {{ payment.get_method_display }}</div>
+        <div>Time: {{ payment.paid_at|date:"d M Y H:i" }}</div>
+      </div>
+    {% else %}
+      <div style="font-size: 10px; margin-top: 4px;">
+        Payment: UNPAID
+      </div>
+    {% endif %}
+
+    <div class="receipt-divider"></div>
+
+    <div class="receipt-footer">
+      <div>Thank you!</div>
+      <div style="margin-top: 2px; font-size: 9px;">Please come again</div>
+    </div>
+  </div>
+
+  {% if auto_print %}
+  <script>
+    window.addEventListener("DOMContentLoaded", function() {
+      setTimeout(function() {
+        window.print();
+      }, 300);
+    });
+  </script>
+  {% endif %}
+
+</body>
+</html>

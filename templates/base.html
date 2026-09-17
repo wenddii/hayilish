@@ -1,0 +1,70 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Hayilish Color Bar{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <header class="navbar no-print">
+    <a href="{% if user.is_authenticated %}{% url 'dashboard_redirect' %}{% else %}{% url 'login' %}{% endif %}" class="nav-brand">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="6" cy="6" r="3"></circle>
+        <circle cx="6" cy="18" r="3"></circle>
+        <line x1="20" y1="4" x2="8.12" y2="15.88"></line>
+        <line x1="14.47" y1="14.48" x2="20" y2="20"></line>
+        <line x1="8.12" y1="8.12" x2="12" y2="12"></line>
+      </svg>
+      Hayilish Color Bar
+    </a>
+
+    {% if user.is_authenticated %}
+    <nav>
+      <ul class="nav-links">
+        {% if user.is_superuser or user.profile.role == 'owner' %}
+          <!-- Owner Navigation -->
+          <li><a href="{% url 'owner_dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'owner_dashboard' %}active{% endif %}">Dashboard</a></li>
+          <li><a href="{% url 'owner_reports' %}" class="nav-link {% if request.resolver_match.url_name == 'owner_reports' %}active{% endif %}">Reports</a></li>
+          <li><a href="{% url 'ticket_history' %}" class="nav-link {% if request.resolver_match.url_name == 'ticket_history' %}active{% endif %}">Ticket History</a></li>
+          <li><a href="{% url 'service_list' %}" class="nav-link {% if request.resolver_match.url_name in 'service_list,service_edit' %}active{% endif %}">Services</a></li>
+          <li><a href="{% url 'ticket_create' %}" class="nav-link {% if request.resolver_match.url_name == 'ticket_create' %}active{% endif %}">+ New Ticket</a></li>
+        {% else %}
+          <!-- Receptionist Navigation -->
+          <li><a href="{% url 'active_tickets' %}" class="nav-link {% if request.resolver_match.url_name in 'active_tickets,active_tickets_alias' %}active{% endif %}">Active Tickets</a></li>
+          <li><a href="{% url 'ticket_create' %}" class="nav-link {% if request.resolver_match.url_name == 'ticket_create' %}active{% endif %}">+ New Ticket</a></li>
+          <li><a href="{% url 'ticket_history' %}" class="nav-link {% if request.resolver_match.url_name == 'ticket_history' %}active{% endif %}">Ticket History</a></li>
+        {% endif %}
+      </ul>
+    </nav>
+
+    <div class="nav-user">
+      <span class="user-badge {% if user.is_superuser or user.profile.role == 'owner' %}owner{% else %}receptionist{% endif %}">
+        {% if user.is_superuser or user.profile.role == 'owner' %}Owner{% else %}Receptionist{% endif %}
+      </span>
+      <span style="font-size: 0.9rem; font-weight: 500;">{{ user.username }}</span>
+      <a href="{% url 'logout' %}" class="btn btn-secondary btn-sm" title="Log out">Logout</a>
+    </div>
+    {% endif %}
+  </header>
+
+  <main class="container">
+    {% if messages %}
+      <div class="no-print">
+        {% for message in messages %}
+          <div class="alert alert-{% if message.tags == 'error' %}error{% elif message.tags == 'success' %}success{% else %}info{% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% block content %}
+    {% endblock %}
+  </main>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

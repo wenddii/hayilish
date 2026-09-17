@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% block title %}New Ticket - Hayilish Color Bar{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 1rem;">
+  <h1 style="font-size: 1.5rem; font-weight: 700;">New Customer Ticket</h1>
+  <p style="color: var(--text-muted); font-size: 0.9rem;">Select services in the exact order requested by the customer.</p>
+</div>
+
+<form method="post" id="ticket-form">
+  {% csrf_token %}
+  <div class="grid-2">
+    
+    <!-- LEFT: Customer & Service Selection -->
+    <div>
+      <!-- Customer Information Card -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">1. Customer Details</h2>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Optional</span>
+        </div>
+        <div class="grid-2">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="customer_name" class="form-label">Customer Name</label>
+            <input type="text" name="customer_name" id="customer_name" class="form-control" placeholder="Walk-in Customer" value="{{ customer_name|default:'' }}">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="customer_phone" class="form-label">Phone Number</label>
+            <input type="text" name="customer_phone" id="customer_phone" class="form-control" placeholder="e.g. 0911234567" value="{{ customer_phone|default:'' }}">
+          </div>
+        </div>
+      </div>
+
+      <!-- Service Selection Card -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">2. Select Services</h2>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Click to add</span>
+        </div>
+        {% if active_services %}
+          <div class="service-picker-grid">
+            {% for s in active_services %}
+              <button type="button" class="service-btn" onclick="addService('{{ s.id }}', '{{ s.name|escapejs }}', {{ s.price }})">
+                <span class="s-name">{{ s.name }}</span>
+                <span class="s-price">{{ s.price }} ETB</span>
+              </button>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p style="color: var(--text-muted); font-size: 0.9rem;">No active services available. Please add services in the Services tab.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- RIGHT: Selected Services in Order & Summary -->
+    <div>
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">3. Customer Order Sequence</h2>
+          <span id="service-count" style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">0 services</span>
+        </div>
+
+        <div id="empty-state" style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 0.5rem; opacity: 0.5;">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          <p style="font-size: 0.9rem;">No services selected yet.</p>
+          <p style="font-size: 0.8rem;">Click services on the left to add them in order.</p>
+        </div>
+
+        <!-- Ordered Services List -->
+        <ul id="ordered-list" class="ordered-services-list" style="display: none;">
+          <!-- Dynamically populated by JS -->
+        </ul>
+
+        <!-- Container for hidden form inputs -->
+        <div id="hidden-inputs"></div>
+
+        <!-- Live Total -->
+        <div class="total-display">
+          <span>Total</span>
+          <span id="total-amount">0.00 ETB</span>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="display: flex; gap: 0.75rem; margin-top: 1.25rem;">
+          <button type="submit" name="create_ticket" class="btn btn-primary" style="flex: 1; padding: 0.75rem;">
+            Create Ticket
+          </button>
+          <button type="submit" name="create_and_print" value="1" class="btn btn-secondary" style="flex: 1; padding: 0.75rem;">
+            Create & Print 58mm
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let selectedServices = [];
+
+  function addService(id, name, price) {
+    selectedServices.push({
+      id: id,
+      name: name,
+      price: parseFloat(price)
+    });
+    renderOrderList();
+  }
+
+  function removeService(index) {
+    selectedServices.splice(index, 1);
+    renderOrderList();
+  }
+
+  function moveUp(index) {
+    if (index > 0) {
+      const temp = selectedServices[index];
+      selectedServices[index] = selectedServices[index - 1];
+      selectedServices[index - 1] = temp;
+      renderOrderList();
+    }
+  }
+
+  function moveDown(index) {
+    if (index < selectedServices.length - 1) {
+      const temp = selectedServices[index];
+      selectedServices[index] = selectedServices[index + 1];
+      selectedServices[index + 1] = temp;
+      renderOrderList();
+    }
+  }
+
+  function renderOrderList() {
+    const listEl = document.getElementById("ordered-list");
+    const emptyEl = document.getElementById("empty-state");
+    const hiddenInputsEl = document.getElementById("hidden-inputs");
+    const countEl = document.getElementById("service-count");
+    const totalEl = document.getElementById("total-amount");
+
+    listEl.innerHTML = "";
+    hiddenInputsEl.innerHTML = "";
+
+    if (selectedServices.length === 0) {
+      listEl.style.display = "none";
+      emptyEl.style.display = "block";
+      countEl.textContent = "0 services";
+      totalEl.textContent = "0.00 ETB";
+      return;
+    }
+
+    listEl.style.display = "block";
+    emptyEl.style.display = "none";
+    countEl.textContent = `${selectedServices.length} service${selectedServices.length > 1 ? 's' : ''}`;
+
+    let total = 0;
+
+    selectedServices.forEach((item, index) => {
+      total += item.price;
+
+      // Create list row
+      const li = document.createElement("li");
+      li.className = "ordered-item";
+
+      const leftDiv = document.createElement("div");
+      leftDiv.className = "ordered-item-left";
+
+      const orderSpan = document.createElement("span");
+      orderSpan.className = "order-number";
+      orderSpan.textContent = `${index + 1}.`;
+
+      const infoDiv = document.createElement("div");
+      infoDiv.innerHTML = `<strong>${item.name}</strong> <span style="color: var(--text-muted); font-size: 0.85rem; margin-left: 0.5rem;">${item.price.toFixed(2)} ETB</span>`;
+
+      leftDiv.appendChild(orderSpan);
+      leftDiv.appendChild(infoDiv);
+
+      // Actions (Move Up, Move Down, Remove)
+      const actionsDiv = document.createElement("div");
+      actionsDiv.className = "order-actions";
+
+      if (index > 0) {
+        const upBtn = document.createElement("button");
+        upBtn.type = "button";
+        upBtn.className = "btn btn-secondary btn-sm";
+        upBtn.innerHTML = "▲";
+        upBtn.title = "Move Up";
+        upBtn.onclick = () => moveUp(index);
+        actionsDiv.appendChild(upBtn);
+      }
+
+      if (index < selectedServices.length - 1) {
+        const downBtn = document.createElement("button");
+        downBtn.type = "button";
+        downBtn.className = "btn btn-secondary btn-sm";
+        downBtn.innerHTML = "▼";
+        downBtn.title = "Move Down";
+        downBtn.onclick = () => moveDown(index);
+        actionsDiv.appendChild(downBtn);
+      }
+
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "btn btn-danger btn-sm";
+      removeBtn.innerHTML = "✕";
+      removeBtn.title = "Remove Service";
+      removeBtn.onclick = () => removeService(index);
+      actionsDiv.appendChild(removeBtn);
+
+      li.appendChild(leftDiv);
+      li.appendChild(actionsDiv);
+      listEl.appendChild(li);
+
+      // Add hidden input for POST submission
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "services[]";
+      input.value = item.id;
+      hiddenInputsEl.appendChild(input);
+    });
+
+    totalEl.textContent = `${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`;
+  }
+</script>
+{% endblock %}

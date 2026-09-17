@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}Owner Reports - Hayilish Color Bar{% endblock %}
+
+{% block content %}
+<div class="card-header" style="margin-bottom: 1.25rem;">
+  <div>
+    <h1 style="font-size: 1.5rem; font-weight: 700;">Salon Reports</h1>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">Simple business revenue, service usage, and customer summaries.</p>
+  </div>
+</div>
+
+<!-- Date Filter Form -->
+<div class="card">
+  <form method="get" class="form-row" style="align-items: flex-end; flex-wrap: wrap;">
+    <div style="flex: 1; min-width: 160px;">
+      <label for="start_date" class="form-label">From Date</label>
+      <input type="date" name="start_date" id="start_date" class="form-control" value="{{ start_date }}">
+    </div>
+    <div style="flex: 1; min-width: 160px;">
+      <label for="end_date" class="form-label">To Date</label>
+      <input type="date" name="end_date" id="end_date" class="form-control" value="{{ end_date }}">
+    </div>
+    <div>
+      <button type="submit" class="btn btn-primary">Apply Filter</button>
+      <a href="{% url 'owner_reports' %}" class="btn btn-secondary">Reset (Last 30 Days)</a>
+    </div>
+  </form>
+</div>
+
+<!-- Summary Metrics Cards -->
+<div class="grid-4" style="margin-bottom: 1.5rem;">
+  <div class="stat-card">
+    <div class="stat-label">Total Revenue</div>
+    <div class="stat-val" style="color: var(--success);">{{ total_revenue }} ETB</div>
+    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">In selected period</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-label">Total Tickets</div>
+    <div class="stat-val">{{ total_tickets }}</div>
+    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">{{ completed_tickets_count }} completed</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-label">Unique Customers</div>
+    <div class="stat-val">{{ total_customers }}</div>
+    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Registered customers</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-label">Top Payment Method</div>
+    <div class="stat-val" style="font-size: 1.3rem; margin-top: 0.5rem;">
+      {% if payment_methods %}
+        {{ payment_methods.0.method|title }}
+      {% else %}
+        None
+      {% endif %}
+    </div>
+    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Most revenue collected</div>
+  </div>
+</div>
+
+<div class="grid-2">
+  
+  <!-- LEFT: Most-Used Services & Revenue By Service -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Services Performance</h2>
+      <span style="font-size: 0.85rem; color: var(--text-muted);">Most used & revenue</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Service</th>
+            <th style="text-align: center;">Times Done</th>
+            <th style="text-align: right;">Total Revenue</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in service_stats %}
+            <tr>
+              <td><strong>{{ s.service__name }}</strong></td>
+              <td style="text-align: center;">{{ s.usage_count }}</td>
+              <td style="text-align: right; font-weight: 600; color: var(--success);">{{ s.total_revenue }} ETB</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+                No completed service data for this date range.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- RIGHT: Revenue by Payment Method -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Payment Methods Breakdown</h2>
+      <span style="font-size: 0.85rem; color: var(--text-muted);">Cash vs Telebirr vs Bank</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Method</th>
+            <th style="text-align: center;">Transactions</th>
+            <th style="text-align: right;">Total Collected</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in payment_methods %}
+            <tr>
+              <td><strong>{{ p.method|title }}</strong></td>
+              <td style="text-align: center;">{{ p.count }}</td>
+              <td style="text-align: right; font-weight: 600;">{{ p.total_amount }} ETB</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+                No payment data for this date range.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- Periodic Revenue Breakdowns: Daily, Weekly, Monthly -->
+<div class="grid-3" style="margin-top: 1rem;">
+  
+  <!-- Daily Revenue -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title" style="font-size: 1.05rem;">Daily Revenue</h2>
+    </div>
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Tickets</th>
+            <th style="text-align: right;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in daily_revenue %}
+            <tr>
+              <td>{{ d.day|date:"d M Y" }}</td>
+              <td>{{ d.ticket_count }}</td>
+              <td style="text-align: right; font-weight: 600;">{{ d.total }} ETB</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No records</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Weekly Revenue -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title" style="font-size: 1.05rem;">Weekly Revenue</h2>
+    </div>
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Week of</th>
+            <th>Tickets</th>
+            <th style="text-align: right;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for w in weekly_revenue %}
+            <tr>
+              <td>{{ w.week|date:"d M Y" }}</td>
+              <td>{{ w.ticket_count }}</td>
+              <td style="text-align: right; font-weight: 600;">{{ w.total }} ETB</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No records</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Monthly Revenue -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title" style="font-size: 1.05rem;">Monthly Revenue</h2>
+    </div>
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Tickets</th>
+            <th style="text-align: right;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in monthly_revenue %}
+            <tr>
+              <td>{{ m.month|date:"F Y" }}</td>
+              <td>{{ m.ticket_count }}</td>
+              <td style="text-align: right; font-weight: 600;">{{ m.total }} ETB</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No records</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
