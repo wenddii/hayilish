@@ -11,7 +11,7 @@ import datetime
 
 from accounts.decorators import receptionist_required, owner_required
 from .models import Service, Customer, Ticket, TicketService, Payment
-from .forms import ServiceForm, AddServiceToTicketForm, PaymentForm
+from .forms import ServiceForm, AddServiceToTicketForm, PaymentForm, TicketServiceEditForm
 
 
 # ==========================================
@@ -132,11 +132,11 @@ def ticket_detail(request, ticket_id):
 @login_required
 @receptionist_required
 def ticket_add_service(request, ticket_id):
-    """Add another service to an existing open ticket."""
+    """Add another service to an existing ticket (open or completed)."""
     ticket = get_object_or_404(Ticket, id=ticket_id)
 
-    if ticket.status != "open":
-        messages.error(request, "Cannot add services to a completed or cancelled ticket.")
+    if ticket.status == "cancelled":
+        messages.error(request, "Cannot add services to a cancelled ticket.")
         return redirect("ticket_detail", ticket_id=ticket.id)
 
     if request.method == "POST":
@@ -153,6 +153,12 @@ def ticket_add_service(request, ticket_id):
                 order=max_order + 1,
                 price=service.price,
             )
+
+            # Recalculate ticket total and update payment record if payment exists
+            if hasattr(ticket, "payment"):
+                ticket.payment.amount = ticket.total
+                ticket.payment.save()
+
             messages.success(
                 request, f"Added {service.name} ({service.price} ETB) to Ticket #{ticket.id}."
             )
@@ -160,6 +166,70 @@ def ticket_add_service(request, ticket_id):
             messages.error(request, "Invalid service selected.")
 
     return redirect("ticket_detail", ticket_id=ticket.id)
+
+
+@login_required
+@receptionist_required
+def ticket_remove_service(request, ticket_id, item_id):
+    """Remove a service item from a ticket (open or completed)."""
+    ticket = get_object_or_404(Ticket, id=ticket_id)
+
+    if ticket.status == "cancelled":
+        messages.error(request, "Cannot modify a cancelled ticket.")
+        return redirect("ticket_detail", ticket_id=ticket.id)
+
+    item = get_object_or_404(TicketService, id=item_id, ticket=ticket)
+
+    if request.method == "POST":
+        service_name = item.service.name
+        item.delete()
+
+        # Re-sequence remaining items
+        for idx, remaining_item in enumerate(ticket.items.all().order_by("order"), start=1):
+            if remaining_item.order != idx:
+                remaining_item.order = idx
+                remaining_item.save()
+
+        # Recalculate ticket total and update payment record if payment exists
+        if hasattr(ticket, "payment"):
+            ticket.payment.amount = ticket.total
+            ticket.payment.save()
+
+        messages.info(request, f"Removed {service_name} from Ticket #{ticket.id}.")
+
+    return redirect("ticket_detail", ticket_id=ticket.id)
+
+
+@login_required
+@receptionist_required
+def ticket_edit_service(request, ticket_id, item_id):
+    """Edit an existing service item on a ticket (service, price, or order)."""
+    ticket = get_object_or_404(Ticket, id=ticket_id)
+
+    if ticket.status == "cancelled":
+        messages.error(request, "Cannot edit a cancelled ticket.")
+        return redirect("ticket_detail", ticket_id=ticket.id)
+
+    item = get_object_or_404(TicketService, id=item_id, ticket=ticket)
+
+    if request.method == "POST":
+        form = TicketServiceEditForm(request.POST, instance=item)
+        if form.is_valid():
+            form.save()
+            # Recalculate ticket total and update payment record if payment exists
+            if hasattr(ticket, "payment"):
+                ticket.payment.amount = ticket.total
+                ticket.payment.save()
+            messages.success(request, f"Updated service item #{item.order} on Ticket #{ticket.id}.")
+            return redirect("ticket_detail", ticket_id=ticket.id)
+    else:
+        form = TicketServiceEditForm(instance=item)
+
+    return render(
+        request,
+        "salon/ticket_service_edit.html",
+        {"ticket": ticket, "item": item, "form": form},
+    )
 
 
 @login_required

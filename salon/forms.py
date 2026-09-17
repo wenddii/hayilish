@@ -1,5 +1,5 @@
 from django import forms
-from .models import Service, Payment
+from .models import Service, Payment, TicketService
 
 
 class ServiceForm(forms.ModelForm):
@@ -41,3 +41,20 @@ class PaymentForm(forms.ModelForm):
         if amount is not None and amount < 0:
             raise forms.ValidationError("Amount cannot be negative.")
         return amount
+
+
+class TicketServiceEditForm(forms.ModelForm):
+    class Meta:
+        model = TicketService
+        fields = ["service", "price", "order"]
+        widgets = {
+            "service": forms.Select(attrs={"class": "form-control"}),
+            "price": forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "min": "0"}),
+            "order": forms.NumberInput(attrs={"class": "form-control", "min": "1"}),
+        }
+
+    def clean_price(self):
+        price = self.cleaned_data.get("price")
+        if price is not None and price < 0:
+            raise forms.ValidationError("Price cannot be negative.")
+        return price

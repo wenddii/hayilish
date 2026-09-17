@@ -42,7 +42,7 @@
       <div>
         <span class="form-label" style="color: var(--text-muted);">Payment Status</span>
         {% if payment %}
-          <strong style="color: var(--success);">Paid ({{ payment.get_method_display }})</strong>
+          <strong style="color: var(--success);">Paid {{ payment.amount }} ETB ({{ payment.get_method_display }})</strong>
           <div style="font-size: 0.8rem; color: var(--text-muted);">{{ payment.paid_at|date:"d M Y, H:i" }}</div>
         {% else %}
           <strong style="color: var(--warning);">Unpaid</strong>
@@ -59,6 +59,9 @@
             <th style="width: 40px;">#</th>
             <th>Service</th>
             <th style="text-align: right;">Price (ETB)</th>
+            {% if ticket.status != 'cancelled' %}
+              <th style="text-align: right; width: 120px;">Actions</th>
+            {% endif %}
           </tr>
         </thead>
         <tbody>
@@ -72,10 +75,21 @@
                 {% endif %}
               </td>
               <td style="text-align: right; font-weight: 600;">{{ item.price }} ETB</td>
+              {% if ticket.status != 'cancelled' %}
+                <td style="text-align: right;">
+                  <div style="display: flex; gap: 0.35rem; justify-content: flex-end;">
+                    <a href="{% url 'ticket_edit_service' ticket.id item.id %}" class="btn btn-secondary btn-sm" title="Edit Service Item">Edit</a>
+                    <form method="post" action="{% url 'ticket_remove_service' ticket.id item.id %}" onsubmit="return confirm('Remove {{ item.service.name }} from this ticket?');" style="display: inline;">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-danger btn-sm" title="Remove Service">✕</button>
+                    </form>
+                  </div>
+                </td>
+              {% endif %}
             </tr>
           {% empty %}
             <tr>
-              <td colspan="3" style="text-align: center; color: var(--text-muted);">No services attached to this ticket.</td>
+              <td colspan="{% if ticket.status != 'cancelled' %}4{% else %}3{% endif %}" style="text-align: center; color: var(--text-muted);">No services attached to this ticket.</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -89,17 +103,21 @@
     </div>
   </div>
 
-  {% if ticket.status == 'open' %}
-    <!-- ACTIONS GRID FOR OPEN TICKETS -->
-    <div class="grid-2">
+  {% if ticket.status != 'cancelled' %}
+    <!-- ACTIONS GRID (Available for Open and Completed Tickets) -->
+    <div class="{% if ticket.status == 'open' %}grid-2{% endif %}">
       
-      <!-- 1. Add Service Later -->
+      <!-- 1. Add Service Later (Allowed even after completion/payment) -->
       <div class="card">
         <div class="card-header">
           <h2 class="card-title" style="font-size: 1rem;">Add Another Service</h2>
         </div>
         <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
-          Customer requested an additional service? Add it here. It will be appended in order.
+          {% if ticket.status == 'completed' %}
+            Customer used an additional service? Add it here. The ticket total and payment record will be updated automatically.
+          {% else %}
+            Customer requested an additional service? Add it here. It will be appended in order.
+          {% endif %}
         </p>
         <form method="post" action="{% url 'ticket_add_service' ticket.id %}">
           {% csrf_token %}
@@ -113,46 +131,50 @@
         </form>
       </div>
 
-      <!-- 2. Complete Ticket & Record Payment -->
-      <div class="card" style="border-color: #a7f3d0;">
-        <div class="card-header">
-          <h2 class="card-title" style="font-size: 1rem; color: var(--success-text);">Complete & Pay</h2>
+      {% if ticket.status == 'open' %}
+        <!-- 2. Complete Ticket & Record Payment -->
+        <div class="card" style="border-color: #a7f3d0;">
+          <div class="card-header">
+            <h2 class="card-title" style="font-size: 1rem; color: var(--success-text);">Complete & Pay</h2>
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+            Record customer payment method and mark this ticket as completed.
+          </p>
+          <form method="post" action="{% url 'ticket_complete' ticket.id %}">
+            {% csrf_token %}
+            <div class="form-group">
+              <label for="id_method" class="form-label">Payment Method</label>
+              {{ payment_form.method }}
+            </div>
+            <div class="form-group">
+              <label for="id_amount" class="form-label">Amount (ETB)</label>
+              {{ payment_form.amount }}
+            </div>
+            <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+              <button type="submit" class="btn btn-success" style="flex: 1;">
+                Complete Ticket
+              </button>
+              <button type="submit" name="complete_and_print" value="1" class="btn btn-secondary" title="Complete & Print 58mm Receipt">
+                Complete & Print
+              </button>
+            </div>
+          </form>
         </div>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
-          Record customer payment method and mark this ticket as completed.
-        </p>
-        <form method="post" action="{% url 'ticket_complete' ticket.id %}">
+      {% endif %}
+
+    </div>
+
+    {% if ticket.status == 'open' %}
+      <!-- Cancel Ticket Option -->
+      <div style="text-align: right; margin-top: 0.5rem; margin-bottom: 2rem;">
+        <form method="post" action="{% url 'ticket_cancel' ticket.id %}" onsubmit="return confirm('Are you sure you want to cancel Ticket #{{ ticket.id }}?');">
           {% csrf_token %}
-          <div class="form-group">
-            <label for="id_method" class="form-label">Payment Method</label>
-            {{ payment_form.method }}
-          </div>
-          <div class="form-group">
-            <label for="id_amount" class="form-label">Amount (ETB)</label>
-            {{ payment_form.amount }}
-          </div>
-          <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
-            <button type="submit" class="btn btn-success" style="flex: 1;">
-              Complete Ticket
-            </button>
-            <button type="submit" name="complete_and_print" value="1" class="btn btn-secondary" title="Complete & Print 58mm Receipt">
-              Complete & Print
-            </button>
-          </div>
+          <button type="submit" class="btn btn-danger btn-sm">
+            Cancel Ticket
+          </button>
         </form>
       </div>
-
-    </div>
-
-    <!-- Cancel Ticket Option -->
-    <div style="text-align: right; margin-top: 0.5rem; margin-bottom: 2rem;">
-      <form method="post" action="{% url 'ticket_cancel' ticket.id %}" onsubmit="return confirm('Are you sure you want to cancel Ticket #{{ ticket.id }}?');">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-danger btn-sm">
-          Cancel Ticket
-        </button>
-      </form>
-    </div>
+    {% endif %}
 
   {% endif %}
 

@@ -173,3 +173,53 @@ class SalonWorkflowTests(TestCase):
         self.client.post(reverse("service_toggle", args=[self.s1.id]))
         self.s1.refresh_from_db()
         self.assertTrue(self.s1.is_active)
+
+    def test_post_payment_service_modifications(self):
+        """Test adding, editing, and removing services on a completed/paid ticket."""
+        self.client.login(username="test_rec", password="password123")
+        ticket = Ticket.objects.create(created_by=self.receptionist, status="open")
+        item1 = TicketService.objects.create(ticket=ticket, service=self.s1, order=1, price=self.s1.price) # 150
+        item2 = TicketService.objects.create(ticket=ticket, service=self.s2, order=2, price=self.s2.price) # 300
+
+        # 1. Complete ticket with Telebirr payment
+        self.client.post(
+            reverse("ticket_complete", args=[ticket.id]),
+            {"method": "telebirr", "amount": "450.00"},
+        )
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.status, "completed")
+        self.assertEqual(ticket.payment.amount, Decimal("450.00"))
+
+        # 2. Add service post-payment (s3 = 800 ETB)
+        add_resp = self.client.post(
+            reverse("ticket_add_service", args=[ticket.id]),
+            {"service": self.s3.id},
+        )
+        self.assertEqual(add_resp.status_code, 302)
+        ticket.refresh_from_db()
+        ticket.payment.refresh_from_db()
+        self.assertEqual(ticket.items.count(), 3)
+        self.assertEqual(ticket.total, Decimal("1250.00"))
+        self.assertEqual(ticket.payment.amount, Decimal("1250.00"))
+
+        # 3. Edit service item post-payment (change price of item1 to 200.00)
+        edit_resp = self.client.post(
+            reverse("ticket_edit_service", args=[ticket.id, item1.id]),
+            {"service": self.s1.id, "price": "200.00", "order": 1},
+        )
+        self.assertEqual(edit_resp.status_code, 302)
+        ticket.refresh_from_db()
+        ticket.payment.refresh_from_db()
+        self.assertEqual(ticket.total, Decimal("1300.00"))
+        self.assertEqual(ticket.payment.amount, Decimal("1300.00"))
+
+        # 4. Remove service item post-payment (remove item2 = 300.00)
+        del_resp = self.client.post(
+            reverse("ticket_remove_service", args=[ticket.id, item2.id]),
+        )
+        self.assertEqual(del_resp.status_code, 302)
+        ticket.refresh_from_db()
+        ticket.payment.refresh_from_db()
+        self.assertEqual(ticket.items.count(), 2)
+        self.assertEqual(ticket.total, Decimal("1000.00"))
+        self.assertEqual(ticket.payment.amount, Decimal("1000.00"))
